@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TaskHero | Gestor de tareas</title>
+    <link rel="stylesheet" th:href="@{/css/estilos.css}" href="../static/css/estilos.css">
+</head>
+<body>
+<div class="contenedor">
+
+    <header class="encabezado">
+        <div>
+            <h1><span class="logo">✓</span> TaskHero</h1>
+            <p>Gestor de tareas académicas, personales y laborales</p>
+        </div>
+        <p class="fecha-hoy" th:text="${hoy}">jueves 12 de noviembre de 2026</p>
+    </header>
+
+    <!-- Mensajes después de una acción -->
+    <p class="aviso aviso-ok" th:if="${mensaje}" th:text="${mensaje}">Tarea agregada.</p>
+    <p class="aviso aviso-error" th:if="${error}" th:text="${error}">Error.</p>
+
+    <!-- Resumen: los números los calcula GestorTareas -->
+    <section class="resumen">
+        <div class="tarjeta dato"><span class="numero" th:text="${gestor.total}">0</span><span class="rotulo">Total</span></div>
+        <div class="tarjeta dato"><span class="numero azul" th:text="${gestor.cantidadPendientes}">0</span><span class="rotulo">Pendientes</span></div>
+        <div class="tarjeta dato"><span class="numero verde" th:text="${gestor.cantidadCompletadas}">0</span><span class="rotulo">Completadas</span></div>
+        <div class="tarjeta dato"><span class="numero rojo" th:text="${gestor.cantidadVencidas}">0</span><span class="rotulo">Vencidas</span></div>
+        <div class="tarjeta avance">
+            <div class="avance-texto"><span>Avance</span><strong th:text="${gestor.porcentajeAvance} + '%'">0%</strong></div>
+            <div class="barra"><div class="barra-relleno" th:style="'width:' + ${gestor.porcentajeAvance} + '%'"></div></div>
+        </div>
+    </section>
+
+    <!-- Recordatorios: objetos que implementan la interfaz Recordable -->
+    <section class="tarjeta recordatorios" th:if="${!#lists.isEmpty(recordatorios)}">
+        <h2>🔔 Recordatorios <span class="contador" th:text="${#lists.size(recordatorios)}">0</span></h2>
+        <ul>
+            <li th:each="r : ${recordatorios}" th:text="${r.mensajeRecordatorio}">Tarea · Vence hoy</li>
+        </ul>
+    </section>
+
+    <div class="columnas">
+
+        <!-- Formulario para agregar tareas -->
+        <section class="tarjeta formulario">
+            <h2>Nueva tarea</h2>
+            <form action="/agregar" method="POST">
+                <label>Título
+                    <input type="text" name="titulo" maxlength="60" placeholder="Ej: Estudiar para el parcial" required>
+                </label>
+                <label>Descripción
+                    <input type="text" name="descripcion" maxlength="120" placeholder="Detalle breve (opcional)">
+                </label>
+                <div class="fila">
+                    <label>Tipo
+                        <select name="tipo" id="tipo">
+                            <option value="Academica" data-rotulo="Materia" data-ejemplo="Ej: Programación II">Académica</option>
+                            <option value="Personal" data-rotulo="Categoría" data-ejemplo="Ej: Hogar">Personal</option>
+                            <option value="Laboral" data-rotulo="Proyecto" data-ejemplo="Ej: Proyecto AulaFlow">Laboral</option>
+                        </select>
+                    </label>
+                    <label><span id="rotulo-extra">Materia</span>
+                        <input type="text" name="extra" id="extra" maxlength="40" placeholder="Ej: Programación II" required>
+                    </label>
+                </div>
+                <div class="fila">
+                    <label>Fecha límite
+                        <input type="date" name="fecha">
+                    </label>
+                    <label>Prioridad
+                        <select name="prioridad">
+                            <option th:each="p : ${prioridades}" th:value="${p.name()}" th:text="${p.etiqueta}"
+                                    th:selected="${p.name() == 'MEDIA'}">Media</option>
+                        </select>
+                    </label>
+                </div>
+                <button type="submit" class="boton boton-principal">Guardar tarea</button>
+            </form>
+        </section>
+
+        <!-- Lista de tareas -->
+        <section class="tarjeta lista">
+            <div class="lista-cabecera">
+                <h2>Mis tareas</h2>
+                <nav class="filtros">
+                    <a href="/" th:classappend="${filtro == 'todas'} ? 'activo'">Todas</a>
+                    <a href="/?filtro=pendientes" th:classappend="${filtro == 'pendientes'} ? 'activo'">Pendientes</a>
+                    <a href="/?filtro=completadas" th:classappend="${filtro == 'completadas'} ? 'activo'">Completadas</a>
+                    <a href="/?filtro=vencidas" th:classappend="${filtro == 'vencidas'} ? 'activo'">Vencidas</a>
+                </nav>
+            </div>
+
+            <p class="vacio" th:if="${#lists.isEmpty(tareas)}">No hay tareas para mostrar en esta vista.</p>
+
+            <article th:each="t : ${tareas}" class="tarea"
+                     th:classappend="(${t.completada} ? 'hecha ' : '') + (${t.estaVencida()} ? 'vencida ' : '') + 'tipo-' + ${t.nombreClase}">
+                <div class="tarea-cuerpo">
+                    <h3 th:text="${t.titulo}">Título</h3>
+                    <p class="descripcion" th:if="${!#strings.isEmpty(t.descripcion)}" th:text="${t.descripcion}">Descripción</p>
+                    <div class="etiquetas">
+                        <!-- Polimorfismo: getTipo() y getInfoExtra() responden distinto según la clase hija -->
+                        <span class="etiqueta etiqueta-tipo" th:text="${t.tipo}">Tipo</span>
+                        <span class="etiqueta" th:text="${t.infoExtra}">Materia: X</span>
+                        <span class="etiqueta" th:classappend="'prio-' + ${t.prioridad.name()}"
+                              th:text="'Prioridad ' + ${#strings.toLowerCase(t.prioridad.etiqueta)}">Prioridad media</span>
+                        <span class="etiqueta etiqueta-fecha" th:text="${t.textoVencimiento}">Vence hoy</span>
+                    </div>
+                </div>
+                <div class="tarea-acciones">
+                    <form action="/completar" method="POST">
+                        <input type="hidden" name="id" th:value="${t.id}">
+                        <input type="hidden" name="filtro" th:value="${filtro}">
+                        <button type="submit" class="boton boton-ok" th:text="${t.completada} ? 'Reabrir' : 'Completar'">Completar</button>
+                    </form>
+                    <form action="/eliminar" method="POST" onsubmit="return confirm('¿Eliminar esta tarea?');">
+                        <input type="hidden" name="id" th:value="${t.id}">
+                        <input type="hidden" name="filtro" th:value="${filtro}">
+                        <button type="submit" class="boton boton-borrar">Eliminar</button>
+                    </form>
+                </div>
+            </article>
+        </section>
+    </div>
+
+    <footer>TaskHero · Proyecto de Programación Orientada a Objetos · Java + Spring Boot</footer>
+</div>
+
+<script>
+    // Cambia el rótulo del campo según el tipo de tarea elegido
+    var tipo = document.getElementById('tipo');
+    tipo.addEventListener('change', function () {
+        var opcion = tipo.options[tipo.selectedIndex];
+        document.getElementById('rotulo-extra').textContent = opcion.dataset.rotulo;
+        document.getElementById('extra').placeholder = opcion.dataset.ejemplo;
+    });
+</script>
+</body>
+</html>
